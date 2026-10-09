@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang=en><head><meta charset=UTF-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Overlord CTF — Admin</title>
+<style>
+:root{--bg:#070b16;--panel:#131d33;--panel2:#1b2742;--accent:#38bdf8;--accent2:#a855f7;
+--good:#22c55e;--bad:#ef4444;--text:#f8fafc;--muted:#8da2c0;--border:#27354f;}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+background:radial-gradient(1200px 600px at 80% -10%,rgba(168,85,247,.12),transparent),
+radial-gradient(900px 500px at -10% 10%,rgba(56,189,248,.12),transparent),var(--bg);
+color:var(--text);min-height:100vh}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 28px;
+border-bottom:1px solid var(--border);background:rgba(2,6,23,.6);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
+.logo{font-weight:800;letter-spacing:-.5px;font-size:1.15rem;
+background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wrap{max-width:1080px;margin:0 auto;padding:28px}
+.grid{display:grid;gap:20px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);
+border-radius:14px;padding:22px;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
+.card h2{margin:0 0 6px;font-size:1.05rem;color:var(--accent)}
+.muted{color:var(--muted);font-size:.88rem}
+input{width:100%;padding:12px;background:#0a1120;border:1px solid var(--border);color:#fff;border-radius:10px;font-size:.95rem;margin-top:8px}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.15)}
+button{cursor:pointer;border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:.95rem;margin-top:12px;
+background:linear-gradient(90deg,var(--accent),#0ea5e9);color:#06121f;width:100%}
+button.ghost{background:transparent;border:1px solid var(--border);color:var(--muted);width:auto;padding:8px 14px}
+.stat{font-size:2.1rem;font-weight:800}
+.row{display:flex;align-items:center;gap:12px}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:700}
+.b-good{background:rgba(34,197,94,.15);color:var(--good);border:1px solid rgba(34,197,94,.3)}
+.b-bad{background:rgba(239,68,68,.15);color:var(--bad);border:1px solid rgba(239,68,68,.3)}
+.b-mut{background:rgba(141,162,192,.12);color:var(--muted);border:1px solid var(--border)}
+.pulse{animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+canvas{width:100%;height:auto;display:block}
+</style></head><body>
+<header><div class=logo>⚑ OVERLORD CTF · ADMIN</div>
+<div class=row><span id=live class="muted pulse" style=display:none>● live</span>
+<button class=ghost id=aout style=display:none onclick=alogout()>Log out</button></div></header>
+<div class=wrap>
+
+<div id=loginView>
+  <div class=card style="max-width:420px;margin:40px auto">
+    <h2>Admin login</h2>
+    <input id=pw type=password placeholder="Admin password" onkeydown="if(event.key==='Enter')alogin()">
+    <button onclick=alogin()>Enter dashboard</button>
+    <p id=aerr class=muted style=color:var(--bad)></p>
+  </div>
+</div>
+
+<div id=dash style=display:none>
+  <div class=grid style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <div class=card><span class=muted>Players</span><div class=stat id=tPlayers>0</div></div>
+    <div class=card><span class=muted>Online now</span><div class=stat id=tOnline style=color:var(--good)>0</div></div>
+    <div class=card><span class=muted>Total solves</span><div class=stat id=tSolves>0</div></div>
+    <div class=card><span class=muted>Points awarded</span><div class=stat id=tAwarded>0</div></div>
+    <div class=card><span class=muted>Max possible</span><div class=stat id=tPossible>0</div></div>
+  </div>
+
+  <div class=grid style="grid-template-columns:1fr 1fr;margin-top:20px">
+    <div class=card><h2>Solves per stage</h2><canvas id=barChart height=220></canvas></div>
+    <div class=card><h2>Solves over time</h2><canvas id=lineChart height=220></canvas></div>
+  </div>
+
+  <div class=card style=margin-top:20px>
+    <h2>Players</h2>
+    <table><thead><tr><th>Player</th><th>Email</th><th>IP</th><th>Solved</th><th>Score</th><th>Status</th></tr></thead>
+    <tbody id=users></tbody></table>
+  </div>
+
+  <div class=card style=margin-top:20px>
+    <h2>Recent submissions</h2>
+    <table><thead><tr><th>When</th><th>Player</th><th>Submitted</th><th>Result</th></tr></thead>
+    <tbody id=recent></tbody></table>
+  </div>
+</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+async function api(p,b){const o={headers:{'Content-Type':'application/json'}};
+ if(b){o.method='POST';o.body=JSON.stringify(b)}return (await fetch(p,o)).json()}
+
+async function alogin(){const r=await api('/api/admin/login',{password:$('#pw').value});
+ if(!r.ok){$('#aerr').textContent=r.error;return}start()}
+async function alogout(){await api('/api/admin/logout',{});location.reload()}
+
+function animateNum(el,to){let from=parseInt(el.textContent)||0,t0=performance.now();
+ (function step(t){let k=Math.min(1,(t-t0)/600);el.textContent=Math.round(from+(to-from)*k);
+  if(k<1)requestAnimationFrame(step)})(t0)}
+
+function drawBars(cv,labels,vals){const x=cv.getContext('2d'),W=cv.width=cv.clientWidth,H=cv.height;
+ x.clearRect(0,0,W,H);const pad=30,max=Math.max(1,...vals),gap=(W-pad*2)/Math.max(1,vals.length),bw=gap*.6;
+ x.font='11px sans-serif';
+ vals.forEach((v,i)=>{const h=(H-50)*(v/max),bx=pad+gap*i+(gap-bw)/2,by=H-30-h;
+  const g=x.createLinearGradient(0,by,0,H-30);g.addColorStop(0,'#38bdf8');g.addColorStop(1,'#a855f7');
+  x.fillStyle=g;x.beginPath();x.roundRect(bx,by,bw,Math.max(2,h),6);x.fill();
+  x.fillStyle='#e2e8f0';x.textAlign='center';x.fillText(v,bx+bw/2,by-6);
+  x.fillStyle='#8da2c0';x.fillText(labels[i],bx+bw/2,H-12)})}
+
+function drawLine(cv,pts){const x=cv.getContext('2d'),W=cv.width=cv.clientWidth,H=cv.height;
+ x.clearRect(0,0,W,H);const pad=30,max=Math.max(1,...pts.map(p=>p.v));
+ if(!pts.length){x.fillStyle='#8da2c0';x.textAlign='center';x.fillText('No solves yet',W/2,H/2);return}
+ const X=i=>pad+(W-pad*2)*(pts.length===1?0:i/(pts.length-1)),Y=v=>H-30-(H-50)*(v/max);
+ const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(56,189,248,.35)');g.addColorStop(1,'rgba(56,189,248,0)');
+ x.beginPath();x.moveTo(X(0),H-30);pts.forEach((p,i)=>x.lineTo(X(i),Y(p.v)));
+ x.lineTo(X(pts.length-1),H-30);x.closePath();x.fillStyle=g;x.fill();
+ x.beginPath();pts.forEach((p,i)=>i?x.lineTo(X(i),Y(p.v)):x.moveTo(X(i),Y(p.v)));
+ x.strokeStyle='#38bdf8';x.lineWidth=2.5;x.stroke();
+ pts.forEach((p,i)=>{x.beginPath();x.arc(X(i),Y(p.v),3,0,7);x.fillStyle='#a855f7';x.fill()})}
+
+async function refresh(){const d=await api('/api/admin/stats');if(!d.ok)return;
+ animateNum($('#tPlayers'),d.totals.players);animateNum($('#tSolves'),d.totals.solves);
+ animateNum($('#tAwarded'),d.totals.awarded);$('#tPossible').textContent=d.totals.possible;
+ if(d.totals.online!==undefined)animateNum($('#tOnline'),d.totals.online);
+ drawBars($('#barChart'),d.per_flag.map((f,i)=>'S'+(i+1)),d.per_flag.map(f=>f.solves));
+ drawLine($('#lineChart'),d.timeline.map(t=>({v:t.cumulative})));
+ const ut=$('#users');ut.innerHTML='';
+ d.users.forEach(u=>{const tr=document.createElement('tr');
+  const st=u.online?'<span class="badge b-good">online</span>':'<span class="badge b-mut">offline</span>';
+  tr.innerHTML='<td></td><td></td><td></td><td>'+u.solved.length+'/3</td><td><b>'+u.score+'</b></td><td>'+st+'</td>';
+  tr.children[0].textContent=u.username;tr.children[1].textContent=u.email;tr.children[2].textContent=u.ip;
+  ut.appendChild(tr)});
+ const rt=$('#recent');rt.innerHTML='';
+ d.recent.forEach(r=>{const tr=document.createElement('tr');const t=new Date(r.ts).toLocaleTimeString();
+  tr.innerHTML='<td>'+t+'</td><td></td><td></td><td>'+
+   (r.correct?'<span class="badge b-good">correct</span>':'<span class="badge b-bad">wrong</span>')+'</td>';
+  tr.children[1].textContent=r.username||'-';tr.children[2].textContent=r.submitted||'';rt.appendChild(tr)})}
+
+function start(){$('#loginView').style.display='none';$('#dash').style.display='';
+ $('#aout').style.display='';$('#live').style.display='';refresh();setInterval(refresh,8000)}
+
+api('/api/admin/stats').then(d=>{if(d.ok)start()});
+</script></body></html>

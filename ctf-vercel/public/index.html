@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang=en><head><meta charset=UTF-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Overlord CTF — Submit Flags</title>
+<style>
+:root{--bg:#070b16;--panel:#131d33;--panel2:#1b2742;--accent:#38bdf8;--accent2:#a855f7;
+--good:#22c55e;--bad:#ef4444;--text:#f8fafc;--muted:#8da2c0;--border:#27354f;}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+background:radial-gradient(1200px 600px at 80% -10%,rgba(168,85,247,.12),transparent),
+radial-gradient(900px 500px at -10% 10%,rgba(56,189,248,.12),transparent),var(--bg);
+color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 28px;
+border-bottom:1px solid var(--border);background:rgba(2,6,23,.6);backdrop-filter:blur(8px);
+position:sticky;top:0;z-index:10}
+.logo{font-weight:800;letter-spacing:-.5px;font-size:1.15rem;
+background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;
+background-clip:text;color:transparent}
+.wrap{max-width:1080px;margin:0 auto;padding:28px}
+.grid{display:grid;gap:20px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);
+border-radius:14px;padding:22px;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
+.card h2{margin:0 0 6px;font-size:1.05rem;color:var(--accent)}
+.muted{color:var(--muted);font-size:.88rem}
+input{width:100%;padding:12px;background:#0a1120;border:1px solid var(--border);color:#fff;
+border-radius:10px;font-size:.95rem;margin-top:8px}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.15)}
+button{cursor:pointer;border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:.95rem;
+margin-top:12px;background:linear-gradient(90deg,var(--accent),#0ea5e9);color:#06121f;width:100%;
+transition:transform .08s,box-shadow .2s}
+button:hover{box-shadow:0 8px 24px -8px var(--accent)}
+button:active{transform:translateY(1px)}
+button.ghost{background:transparent;border:1px solid var(--border);color:var(--muted);width:auto;padding:8px 14px}
+.stat{font-size:2.1rem;font-weight:800}
+.row{display:flex;align-items:center;gap:12px}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:700}
+.b-good{background:rgba(34,197,94,.15);color:var(--good);border:1px solid rgba(34,197,94,.3)}
+.b-mut{background:rgba(141,162,192,.12);color:var(--muted);border:1px solid var(--border)}
+.bar{height:10px;background:#0a1120;border-radius:999px;overflow:hidden;border:1px solid var(--border)}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));
+width:0;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);
+background:var(--panel2);border:1px solid var(--border);padding:14px 20px;border-radius:12px;
+box-shadow:0 20px 50px -15px rgba(0,0,0,.7);transition:transform .35s cubic-bezier(.2,.9,.2,1);z-index:50;font-weight:600}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.good{border-color:rgba(34,197,94,.5)} .toast.bad{border-color:rgba(239,68,68,.5)}
+.stage{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;
+border:1px solid var(--border);margin-top:10px;background:#0a1120}
+.stage.done{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06)}
+#cf{position:fixed;inset:0;pointer-events:none;z-index:40}
+.rank1{color:#fde047} .rank2{color:#e2e8f0} .rank3{color:#fdba74}
+.dot{font-size:.7rem;margin-right:6px}
+canvas{width:100%;height:auto;display:block;background:#0a1120;border:1px solid var(--border);border-radius:10px}
+</style></head><body>
+<canvas id=cf></canvas>
+<header><div class=logo>⚑ OVERLORD CTF</div>
+<div class=row><span id=whoami class=muted></span>
+<button class=ghost id=logoutBtn style=display:none onclick=logout()>Log out</button></div></header>
+<div class=wrap>
+
+<div id=authView>
+  <div class=card style="max-width:460px;margin:40px auto">
+    <h2>Join the CTF</h2>
+    <p class=muted>Register with your email. Your username is taken from your email. One account per network/IP.</p>
+    <input id=email type=email placeholder="you@example.com" autocomplete=email>
+    <button onclick=register()>Register / Enter</button>
+    <p class=muted style=margin-top:14px>Already registered on another device?
+    <a href=# onclick="login();return false">Log in with the same email</a>.</p>
+    <p id=authErr class=muted style=color:var(--bad)></p>
+  </div>
+</div>
+
+<div id=appView style=display:none>
+  <div class=grid style=grid-template-columns:1fr>
+    <div class=card>
+      <div class=row style=justify-content:space-between>
+        <div><h2 style=margin:0>Your score</h2><span class=muted>Points earned</span></div>
+        <div style=text-align:right><div class=stat id=score>0</div>
+          <span class=muted>of <span id=possible></span></span></div>
+      </div>
+      <div class=bar style=margin-top:14px><i id=scoreBar></i></div>
+    </div>
+
+    <div class=card>
+      <h2>Event stats</h2>
+      <div class=row style="justify-content:space-around;text-align:center;flex-wrap:wrap;gap:18px">
+        <div><div class=stat id=pPlayers>0</div><span class=muted>Players</span></div>
+        <div><div class=stat id=pOnline style=color:var(--good)>0</div><span class=muted>Online now</span></div>
+        <div><div class=stat id=pSolves>0</div><span class=muted>Total solves</span></div>
+      </div>
+      <div class=grid style="grid-template-columns:1fr 1fr;margin-top:18px">
+        <div><div class=muted style=margin-bottom:6px>Top players</div><canvas id=chartScore height=210></canvas></div>
+        <div><div class=muted style=margin-bottom:6px>Solves per stage</div><canvas id=chartStages height=210></canvas></div>
+      </div>
+    </div>
+
+    <div class=card>
+      <h2>Submit a flag</h2>
+      <p class=muted>Paste a flag in the form <code>FLAGn{...}</code>.</p>
+      <input id=flag placeholder="FLAG1{...}" onkeydown="if(event.key==='Enter')submit()">
+      <button onclick=submit()>Submit flag</button>
+    </div>
+
+    <div class=card>
+      <h2>Stages</h2>
+      <div id=stages></div>
+    </div>
+
+    <div class=card>
+      <h2>Live scoreboard</h2>
+      <table><thead><tr><th>#</th><th>Player</th><th>Solves</th><th>Score</th></tr></thead>
+      <tbody id=board></tbody></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<div id=toast class=toast></div>
+<script>
+const $=s=>document.querySelector(s);
+async function api(p,b){const o={headers:{'Content-Type':'application/json'}};
+ if(b){o.method='POST';o.body=JSON.stringify(b)}return (await fetch(p,o)).json()}
+function toast(msg,kind){const t=$('#toast');t.textContent=msg;t.className='toast show '+(kind||'');
+ setTimeout(()=>t.className='toast',2600)}
+
+async function register(){const email=$('#email').value.trim();$('#authErr').textContent='';
+ const r=await api('/api/register',{email});
+ if(!r.ok){$('#authErr').textContent=r.error;return}await load()}
+async function login(){const email=$('#email').value.trim();$('#authErr').textContent='';
+ const r=await api('/api/login',{email});
+ if(!r.ok){$('#authErr').textContent=r.error;return}await load()}
+async function logout(){await api('/api/logout',{});location.reload()}
+
+async function submit(){const flag=$('#flag').value.trim();if(!flag)return;
+ const r=await api('/api/submit',{flag});
+ if(r.ok&&r.correct&&!r.duplicate){toast(r.message,'good');confetti();$('#flag').value=''}
+ else if(r.ok&&r.duplicate){toast(r.message,'')}
+ else{toast(r.error||'Incorrect flag.','bad')}
+ await load()}
+
+async function load(){const me=await api('/api/me');
+ if(!me.authed){$('#authView').style.display='';$('#appView').style.display='none';return}
+ $('#authView').style.display='none';$('#appView').style.display='';
+ $('#logoutBtn').style.display='';$('#whoami').textContent='Logged in as '+me.username;
+ $('#possible').textContent=me.total_points;
+ animateNum($('#score'),me.score);
+ $('#scoreBar').style.width=Math.round(me.score/me.total_points*100)+'%';
+ const st=$('#stages');st.innerHTML='';
+ me.stages.forEach(s=>{const d=document.createElement('div');d.className='stage'+(s.solved?' done':'');
+  const l=document.createElement('div');l.textContent=s.name;
+  const r=document.createElement('div');
+  r.innerHTML=s.solved?'<span class="badge b-good">SOLVED</span>':'<span class="badge b-mut">'+s.points+' pts</span>';
+  d.appendChild(l);d.appendChild(r);st.appendChild(d)});
+ const sb=await api('/api/scoreboard');renderBoard(sb);renderCharts(sb)}
+
+function renderBoard(sb){const tb=$('#board');tb.innerHTML='';
+ sb.board.forEach(p=>{const tr=document.createElement('tr');const rc=p.rank<=3?'rank'+p.rank:'';
+  const col=p.online?'var(--good)':'#475569';
+  tr.innerHTML='<td class="'+rc+'">'+p.rank+'</td><td><span class=dot style="color:'+col+'">●</span></td>'+
+   '<td>'+p.solves+'</td><td><b>'+p.score+'</b></td>';
+  tr.children[1].appendChild(document.createTextNode(p.username));tb.appendChild(tr)});
+ if(sb.presence){$('#pPlayers').textContent=sb.presence.players;
+  $('#pOnline').textContent=sb.presence.online;$('#pSolves').textContent=sb.presence.solves}}
+
+function animateNum(el,to){let from=parseInt(el.textContent)||0,t0=performance.now();
+ (function step(t){let k=Math.min(1,(t-t0)/600);el.textContent=Math.round(from+(to-from)*k);
+  if(k<1)requestAnimationFrame(step)})(t0)}
+
+const COLORS=['#38bdf8','#818cf8','#a855f7','#22c55e','#f472b6','#fbbf24','#fb7185','#34d399'];
+function renderCharts(sb){
+ drawBarsH($('#chartScore'),(sb.board||[]).slice(0,8).map(p=>p.username),(sb.board||[]).slice(0,8).map(p=>p.score));
+ drawBars($('#chartStages'),(sb.stages||[]).map(s=>'S'+s.idx),(sb.stages||[]).map(s=>s.solves));}
+
+function drawBarsH(cv,labels,vals){const x=cv.getContext('2d'),W=cv.width=cv.clientWidth,H=cv.height;
+ x.clearRect(0,0,W,H);if(!vals.length||vals.every(v=>!v)){x.fillStyle='#8da2c0';x.textAlign='center';
+  x.fillText('No scores yet',W/2,H/2);return}
+ const pad=8,lblW=64,max=Math.max(1,...vals),n=vals.length,gap=(H-pad*2)/n,bh=gap*.6;
+ x.font='11px sans-serif';x.textBaseline='middle';
+ vals.forEach((v,i)=>{const y=pad+gap*i+(gap-bh)/2,w=(W-lblW-pad-26)*(v/max);
+  x.fillStyle=COLORS[i%COLORS.length];x.beginPath();x.roundRect(lblW,y,Math.max(2,w),bh,5);x.fill();
+  x.fillStyle='#cbd5e1';x.textAlign='right';x.fillText(labels[i].slice(0,9),lblW-6,y+bh/2);
+  x.fillStyle='#e2e8f0';x.textAlign='left';x.fillText(v,lblW+w+6,y+bh/2)})}
+
+function drawBars(cv,labels,vals){const x=cv.getContext('2d'),W=cv.width=cv.clientWidth,H=cv.height;
+ x.clearRect(0,0,W,H);const pad=30,max=Math.max(1,...vals),gap=(W-pad*2)/Math.max(1,vals.length),bw=gap*.6;
+ x.font='11px sans-serif';x.textBaseline='alphabetic';
+ vals.forEach((v,i)=>{const h=(H-50)*(v/max),bx=pad+gap*i+(gap-bw)/2,by=H-30-h;
+  const g=x.createLinearGradient(0,by,0,H-30);g.addColorStop(0,'#38bdf8');g.addColorStop(1,'#a855f7');
+  x.fillStyle=g;x.beginPath();x.roundRect(bx,by,bw,Math.max(2,h),6);x.fill();
+  x.fillStyle='#e2e8f0';x.textAlign='center';x.fillText(v,bx+bw/2,by-6);
+  x.fillStyle='#8da2c0';x.fillText(labels[i],bx+bw/2,H-12)})}
+
+function confetti(){const c=$('#cf'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+ const P=[],col=['#38bdf8','#a855f7','#22c55e','#fde047','#f472b6'];
+ for(let i=0;i<140;i++)P.push({x:innerWidth/2,y:innerHeight/3,vx:(Math.random()-.5)*12,
+  vy:Math.random()*-14-4,g:.4+Math.random()*.3,s:4+Math.random()*5,c:col[i%col.length],r:Math.random()*6});
+ let n=0;(function f(){x.clearRect(0,0,c.width,c.height);n++;
+  P.forEach(p=>{p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.r+=.2;x.save();x.translate(p.x,p.y);x.rotate(p.r);
+   x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/2,p.s,p.s*1.6);x.restore()});
+  if(n<120)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})()}
+
+load();setInterval(async()=>{if($('#appView').style.display!=='none'){
+ const sb=await api('/api/scoreboard');renderBoard(sb);renderCharts(sb)}},8000);
+</script></body></html>
