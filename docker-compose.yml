@@ -1,0 +1,10 @@
+services:
+  web_portal:
+    build: .
+    # ip_address:
+    # - 192.168.1.35
+    ports:
+      - "8888:8080"
+      - "3333:3000"
+    container_name: ctf_web_overlord_v3
+    restart: always
